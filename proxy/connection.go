@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"strings"
 	"time"
+  "fmt"
 
 	uuid "github.com/satori/go.uuid"
 	log "github.com/sirupsen/logrus"
@@ -244,6 +245,17 @@ func (connCtx *ConnContext) initHttpsServerConn() {
 	}
 }
 
+// 检查通道是否已关闭
+func isChannelClosed(ch chan int) bool {
+	select {
+	case <-ch:
+		return true // 通道已关闭
+	default:
+	}
+
+	return false // 通道未关闭
+}
+
 func (connCtx *ConnContext) tlsHandshake(clientHello *tls.ClientHelloInfo) error {
 	cfg := &tls.Config{
 		InsecureSkipVerify: connCtx.proxy.Opts.SslInsecure,
@@ -273,7 +285,7 @@ func (connCtx *ConnContext) tlsHandshake(clientHello *tls.ClientHelloInfo) error
 	if err != nil {
     defer func(){
       if err2 := recover(); err2 !=nil{
-        println(err2.(string))
+        fmt.Println("hook_err")
       }
     }()
 		connCtx.ServerConn.tlsHandshakeErr = err
