@@ -256,6 +256,18 @@ func isChannelClosed(ch chan int) bool {
 	return false // 通道未关闭
 }
 
+func SafeClose(ch chan struct{}) (closed bool) {
+ defer func() {
+  if recover() != nil {
+   closed = false
+   fmt.Println("SafeClose hook_panic")
+  }
+ }()
+ // 如果 ch 是一个已经关闭的，会 panic 的，然后被 recover 捕捉到；
+ close(ch)
+ return true
+}
+
 func (connCtx *ConnContext) tlsHandshake(clientHello *tls.ClientHelloInfo) error {
 	cfg := &tls.Config{
 		InsecureSkipVerify: connCtx.proxy.Opts.SslInsecure,
@@ -283,20 +295,17 @@ func (connCtx *ConnContext) tlsHandshake(clientHello *tls.ClientHelloInfo) error
 	tlsConn := tls.Client(connCtx.ServerConn.Conn, cfg)
 	err := tlsConn.HandshakeContext(context.Background())
 	if err != nil {
-    defer func(){
-      if err2 := recover(); err2 !=nil{
-        fmt.Println("hook_err")
-      }
-    }()
 		connCtx.ServerConn.tlsHandshakeErr = err
-		close(connCtx.ServerConn.tlsHandshaked)
+		//close(connCtx.ServerConn.tlsHandshaked)
+		SafeClose(connCtx.ServerConn.tlsHandshaked)
 		return err
 	}
 
 	connCtx.ServerConn.tlsConn = tlsConn
 	tlsState := tlsConn.ConnectionState()
 	connCtx.ServerConn.tlsState = &tlsState
-	close(connCtx.ServerConn.tlsHandshaked)
+	//close(connCtx.ServerConn.tlsHandshaked)
+	SafeClose(connCtx.ServerConn.tlsHandshaked)
 
 	return nil
 }
